@@ -4,6 +4,10 @@ import { supabase } from '@/lib/supabase';
 
 export const revalidate = 3600; // Revalidate every hour
 
+export async function generateStaticParams() {
+  return [{ lang: 'en' }, { lang: 'vi' }];
+}
+
 export default async function Home({ params }: { params: { lang: string } }) {
   const { lang = 'en' } = params;
 
