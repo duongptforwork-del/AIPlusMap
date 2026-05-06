@@ -6,8 +6,11 @@ export const revalidate = 3600;
 
 export async function generateStaticParams() {
   const supabase = createClient();
-  const { data: posts } = await supabase.from('posts').select('slug').limit(20);
-  return posts?.map((post) => ({ slug: post.slug })) || [];
+  const { data: posts } = await supabase.from('posts').select('slug, language').limit(50);
+  return posts?.map((post) => ({ 
+    lang: post.language,
+    slug: post.slug 
+  })) || [];
 }
 
 export default async function NewsDetailPage({ params: { lang, slug } }: { params: { lang: string; slug: string } }) {
