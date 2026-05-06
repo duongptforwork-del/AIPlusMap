@@ -5,6 +5,20 @@ import { notFound } from 'next/navigation';
 
 export const revalidate = 3600;
 
+export async function generateStaticParams() {
+  const { data: posts } = await supabase
+    .from('posts')
+    .select('slug, lang')
+    .eq('is_published', true);
+
+  if (!posts) return [];
+
+  return posts.map((post) => ({
+    lang: post.lang,
+    slug: post.slug,
+  }));
+}
+
 export default async function NewsDetail({ params }: { params: { lang: string, slug: string } }) {
   const { lang, slug } = params;
 

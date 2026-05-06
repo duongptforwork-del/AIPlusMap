@@ -5,6 +5,19 @@ import { notFound } from 'next/navigation';
 
 export const revalidate = 3600;
 
+export async function generateStaticParams() {
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('slug, lang');
+
+  if (!categories) return [];
+
+  return categories.map((cat) => ({
+    lang: cat.lang,
+    slug: cat.slug,
+  }));
+}
+
 export default async function CategoryPage({ params }: { params: { lang: string, slug: string } }) {
   const { lang, slug } = params;
 
