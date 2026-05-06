@@ -1,62 +1,153 @@
-import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
+import SectionHeader from '@/components/SectionHeader';
+import { createClient } from '@/utils/supabase/server';
 
-export const revalidate = 3600;
-
-export default async function NewsArchivePage({ params: { lang } }: { params: { lang: string } }) {
+export default async function NewsPage({ 
+  params: { lang }, 
+  searchParams 
+}: { 
+  params: { lang: string }, 
+  searchParams: { page?: string } 
+}) {
   const supabase = createClient();
-
-  const { data: posts } = await supabase
+  
+  // 1. Fetch Featured Hero (Latest 1)
+  const { data: heroPost } = await supabase
     .from('posts')
     .select('*, categories(*)')
     .eq('language', lang)
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(1)
+    .single();
+
+  // 2. Fetch Top Stories (Next 4)
+  const { data: topStories } = await supabase
+    .from('posts')
+    .select('*, categories(*)')
+    .eq('language', lang)
+    .order('created_at', { ascending: false })
+    .range(1, 4);
+
+  // 3. Fetch Categories and their latest posts (Simulated for this design)
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('id, title, slug')
+    .limit(3);
+
+  const postsByCategories = await Promise.all(
+    (categories || []).map(async (cat) => {
+      const { data: posts } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('language', lang)
+        .eq('category_id', cat.id)
+        .order('created_at', { ascending: false })
+        .limit(4);
+      return { ...cat, posts: posts || [] };
+    })
+  );
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8FAFC]">
-      <header className="bg-white border-b border-slate-200 py-4 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
-          <Link href={`/${lang}`} className="flex items-center gap-2 group">
-            <span className="text-2xl font-display font-black tracking-tighter">AI PLUS MAP</span>
-          </Link>
-          <nav>
-            <Link href={`/${lang}`} className="text-sm font-bold hover:text-[#3B82F6] uppercase">Back to Home</Link>
-          </nav>
+    <div className="min-h-screen bg-white">
+      {/* 1. Breaking News Ticker (Simulated) */}
+      <div className="bg-black text-white border-y-4 border-black py-2 overflow-hidden whitespace-nowrap">
+        <div className="inline-block animate-marquee uppercase font-black text-xs tracking-[0.2em]">
+          ✦ BREAKING: THE INTELLIGENCE CARTOGRAPHY UPDATED ✦ AI PLUS MAP V2.0 DEPLOYED ✦ NEW CATEGORIES ADDED: PHYSICAL AI, AGENTIC WORKFLOWS ✦
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-4xl mx-auto px-4 py-12 flex-grow">
-        <h1 className="text-4xl font-display font-black mb-2 italic">Latest News Archive</h1>
-        <p className="text-slate-500 mb-12">Showing latest {posts?.length || 0} articles</p>
+      <main className="max-w-7xl mx-auto px-4 py-12">
+        {/* 2. Hero & Top Stories Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-20">
+          {/* Main Hero */}
+          <div className="lg:col-span-2 group relative bg-white border-4 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all">
+            {heroPost && (
+              <>
+                <div className="aspect-[16/9] border-b-4 border-black overflow-hidden grayscale group-hover:grayscale-0 transition-all">
+                  <img src={heroPost.image_url} alt={heroPost.title} className="w-full h-full object-cover" />
+                </div>
+                <div className="p-8">
+                  <span className="inline-block bg-[#ef4444] text-white px-4 py-1 text-xs font-black uppercase tracking-widest border-2 border-black mb-6">
+                    {heroPost.categories?.title}
+                  </span>
+                  <h1 className="text-5xl font-black leading-[0.9] mb-6 tracking-tighter group-hover:text-[#ef4444] transition-colors">
+                    <Link href={`/${lang}/news/${heroPost.slug}`}>{heroPost.title}</Link>
+                  </h1>
+                  <p className="text-xl font-bold text-slate-800 leading-tight mb-8 line-clamp-3">
+                    {heroPost.description}
+                  </p>
+                  <div className="flex items-center gap-4 text-xs font-black uppercase">
+                    <span>BY EDITOR</span>
+                    <span className="w-2 h-2 bg-black rounded-full"></span>
+                    <span>{new Date(heroPost.created_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
-        <div className="space-y-12">
-          {posts?.map((post, idx) => (
-            <article key={post.id} className={`flex flex-col md:flex-row gap-8 items-start group ${idx > 0 ? 'border-t border-slate-100 pt-12' : ''}`}>
-              <div className="w-full md:w-64 aspect-video bg-slate-200 rounded-xl overflow-hidden flex-shrink-0">
-                <img src={post.image_url} alt={post.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-              </div>
-              <div>
-                <span className="text-[10px] font-black text-[#ef4444] uppercase tracking-widest">{post.categories?.title}</span>
-                <h2 className="text-2xl font-bold mt-2 group-hover:text-[#3B82F6] transition-colors">
-                  <Link href={`/${lang}/news/${post.slug}`}>{post.title}</Link>
-                </h2>
-                <p className="text-slate-500 mt-4 line-clamp-2">{post.description}</p>
-                <div className="mt-4 flex items-center gap-4 text-[10px] font-bold text-slate-400">
-                  <span>{new Date(post.created_at).toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                  <span>5 MIN READ</span>
+          {/* Top Stories List */}
+          <div className="space-y-6">
+            <h3 className="text-2xl font-black uppercase italic border-b-4 border-black pb-2 mb-6">Top Stories</h3>
+            {(topStories || []).map((post) => (
+              <div key={post.id} className="group flex gap-4 items-start border-b-2 border-black pb-6 last:border-0">
+                <div className="w-24 h-24 flex-shrink-0 border-2 border-black grayscale group-hover:grayscale-0 transition-all">
+                  <img src={post.image_url} alt={post.title} className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase text-[#ef4444] mb-1 block">
+                    {post.categories?.title}
+                  </span>
+                  <h4 className="font-black leading-none group-hover:underline decoration-2">
+                    <Link href={`/${lang}/news/${post.slug}`}>{post.title}</Link>
+                  </h4>
                 </div>
               </div>
-            </article>
-          ))}
+            ))}
+          </div>
+        </div>
+
+        {/* 3. Category Blocks (Mimicking artificialintelligence-news.com) */}
+        {postsByCategories.map((catSection) => (
+          <section key={catSection.id} className="mb-20">
+            <div className="flex justify-between items-end border-b-8 border-black mb-10 pb-4">
+              <h2 className="text-6xl font-black uppercase tracking-tighter italic leading-none">{catSection.title}</h2>
+              <Link href={`/${lang}/category/${catSection.slug}`} className="font-black uppercase text-sm bg-black text-white px-6 py-2 hover:bg-[#ef4444] transition-colors">
+                View All
+              </Link>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {catSection.posts.map((post) => (
+                <article key={post.id} className="group flex flex-col">
+                  <div className="aspect-square border-4 border-black mb-6 grayscale group-hover:grayscale-0 transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] group-hover:shadow-none group-hover:translate-x-1 group-hover:translate-y-1">
+                    <img src={post.image_url} alt={post.title} className="w-full h-full object-cover" />
+                  </div>
+                  <h3 className="text-xl font-black leading-[1.1] tracking-tight group-hover:text-[#ef4444]">
+                    <Link href={`/${lang}/news/${post.slug}`}>{post.title}</Link>
+                  </h3>
+                </article>
+              ))}
+            </div>
+          </section>
+        ))}
+
+        {/* 4. Newsletter Box */}
+        <div className="bg-[#ef4444] border-4 border-black p-12 text-center shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] mb-20">
+          <h2 className="text-5xl font-black text-white uppercase italic tracking-tighter mb-4">Subscribe to the Map</h2>
+          <p className="text-black font-bold text-xl mb-8 max-w-2xl mx-auto">Get the most critical AI intelligence delivered to your inbox every morning. No noise, just maps.</p>
+          <div className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto">
+            <input 
+              type="email" 
+              placeholder="ENTER YOUR EMAIL" 
+              className="flex-grow border-4 border-black p-4 font-black text-sm focus:outline-none"
+            />
+            <button className="bg-black text-white px-10 py-4 font-black uppercase text-sm border-4 border-black hover:bg-white hover:text-black transition-all">
+              Join Now
+            </button>
+          </div>
         </div>
       </main>
-
-      <footer className="bg-slate-50 py-12 mt-20 border-t border-slate-200">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <a href="https://deerflow.tech" target="_blank" className="text-xs font-bold opacity-50 hover:opacity-100">Created By Deerflow</a>
-        </div>
-      </footer>
     </div>
   );
 }
