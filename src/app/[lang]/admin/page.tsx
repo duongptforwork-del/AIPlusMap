@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import AdminDashboard from '@/components/admin/AdminDashboard';
+import AdminDashboard from '@/components/AdminDashboard';
 import { notFound } from 'next/navigation';
 
 export const revalidate = 0;
