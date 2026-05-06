@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
@@ -15,7 +17,7 @@ import {
   Globe
 } from 'lucide-react';
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ posts = [], lang = 'en' }: { posts?: any[], lang?: string }) => {
   const [activeTab, setActiveTab] = useState('posts');
   
   const menuItems = [
@@ -25,12 +27,6 @@ const AdminDashboard = () => {
     { id: 'categories', label: 'Categories', icon: FolderTree },
     { id: 'media', label: 'Media', icon: ImageIcon },
     { id: 'settings', label: 'Settings', icon: Settings },
-  ];
-
-  const mockPosts = [
-    { id: 1, title: 'Perplexity AI raises $250M at $3B valuation', category: 'Funding', author: 'Jessica', status: 'Published', date: 'May 06, 2026' },
-    { id: 2, title: 'Nvidia Project GR00T: The brain for humanoid robots', category: 'Robotics', author: 'Jessica', status: 'Published', date: 'May 05, 2026' },
-    { id: 3, title: 'Apple Intelligence: Siri gets a massive LLM upgrade', category: 'Tech Giants', author: 'Jessica', status: 'Draft', date: 'May 04, 2026' },
   ];
 
   return (
@@ -152,24 +148,26 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {mockPosts.map((post) => (
+                  {posts.map((post) => (
                     <tr key={post.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
                         <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{post.title}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">By {post.author}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">By {post.author || 'Admin'}</p>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
-                        <span className="px-2.5 py-1 bg-slate-100 rounded-md font-medium">{post.category}</span>
+                        <span className="px-2.5 py-1 bg-slate-100 rounded-md font-medium">{post.category || 'Uncategorized'}</span>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
                           post.status === 'Published' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
                         }`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${post.status === 'Published' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                          {post.status}
+                          {post.status || 'Draft'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-500">{post.date}</td>
+                      <td className="px-6 py-4 text-sm text-slate-500">
+                        {post.created_at ? new Date(post.created_at).toLocaleDateString() : 'N/A'}
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <button className="p-2 text-slate-400 hover:text-slate-900 transition-colors">
                           <MoreVertical size={18} />
@@ -177,10 +175,17 @@ const AdminDashboard = () => {
                       </td>
                     </tr>
                   ))}
+                  {posts.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-10 text-center text-slate-400 italic">
+                        No posts found for this language.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
               <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-                <p className="text-sm text-slate-500">Showing 3 of 124 results</p>
+                <p className="text-sm text-slate-500">Showing {posts.length} results</p>
                 <div className="flex gap-2">
                   <button className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-white transition-all disabled:opacity-50">Previous</button>
                   <button className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-white transition-all">Next</button>

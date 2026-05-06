@@ -4,18 +4,28 @@ import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
 
 export const revalidate = 3600;
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('slug, lang');
+  try {
+    const { data: categories, error } = await supabase
+      .from('categories')
+      .select('slug, lang')
+      .limit(20);
 
-  if (!categories) return [];
+    if (error || !categories) {
+      console.error('Error fetching categories for generateStaticParams:', error);
+      return [];
+    }
 
-  return categories.map((cat) => ({
-    lang: cat.lang,
-    slug: cat.slug,
-  }));
+    return categories.map((cat) => ({
+      lang: cat.lang,
+      slug: cat.slug,
+    }));
+  } catch (err) {
+    console.error('Unexpected error in generateStaticParams:', err);
+    return [];
+  }
 }
 
 export default async function CategoryPage({ params }: { params: { lang: string, slug: string } }) {

@@ -4,19 +4,31 @@ import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
 
 export const revalidate = 3600;
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  const { data: posts } = await supabase
-    .from('posts')
-    .select('slug, lang')
-    .eq('is_published', true);
+  try {
+    // Limit pre-rendering to top 10 recent posts per language to avoid build timeouts
+    const { data: posts, error } = await supabase
+      .from('posts')
+      .select('slug, lang')
+      .eq('is_published', true)
+      .order('created_at', { ascending: false })
+      .limit(20);
 
-  if (!posts) return [];
+    if (error || !posts) {
+      console.error('Error fetching posts for generateStaticParams:', error);
+      return [];
+    }
 
-  return posts.map((post) => ({
-    lang: post.lang,
-    slug: post.slug,
-  }));
+    return posts.map((post) => ({
+      lang: post.lang,
+      slug: post.slug,
+    }));
+  } catch (err) {
+    console.error('Unexpected error in generateStaticParams:', err);
+    return [];
+  }
 }
 
 export default async function NewsDetail({ params }: { params: { lang: string, slug: string } }) {

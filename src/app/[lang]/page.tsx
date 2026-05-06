@@ -8,43 +8,65 @@ export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'vi' }];
 }
 
+async function getHomeData(lang: string) {
+  try {
+    const [heroRes, subHeroRes, feedRes, catRes] = await Promise.all([
+      // Fetch Hero Post
+      supabase
+        .from('posts')
+        .select('*, categories(name, slug)')
+        .eq('lang', lang)
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(), // Use maybeSingle to avoid errors on 0 results
+
+      // Fetch Sub-Hero Posts (Next 2)
+      supabase
+        .from('posts')
+        .select('*, categories(name, slug)')
+        .eq('lang', lang)
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        .range(1, 2),
+
+      // Fetch Feed Posts
+      supabase
+        .from('posts')
+        .select('*, categories(name, slug)')
+        .eq('lang', lang)
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        .range(3, 8),
+
+      // Fetch Categories
+      supabase
+        .from('categories')
+        .select('*')
+        .eq('lang', lang)
+        .limit(6)
+    ]);
+
+    return {
+      heroPost: heroRes.data,
+      subHeroPosts: subHeroRes.data || [],
+      feedPosts: feedRes.data || [],
+      categories: catRes.data || []
+    };
+  } catch (error) {
+    console.error('Error fetching home data:', error);
+    return {
+      heroPost: null,
+      subHeroPosts: [],
+      feedPosts: [],
+      categories: []
+    };
+  }
+}
+
 export default async function Home({ params }: { params: { lang: string } }) {
   const { lang = 'en' } = params;
-
-  // Fetch Hero Post
-  const { data: heroPost } = await supabase
-    .from('posts')
-    .select('*, categories(name, slug)')
-    .eq('lang', lang)
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-
-  // Fetch Sub-Hero Posts (Next 2)
-  const { data: subHeroPosts } = await supabase
-    .from('posts')
-    .select('*, categories(name, slug)')
-    .eq('lang', lang)
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
-    .range(1, 2);
-
-  // Fetch Feed Posts
-  const { data: feedPosts } = await supabase
-    .from('posts')
-    .select('*, categories(name, slug)')
-    .eq('lang', lang)
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
-    .range(3, 8);
-
-  // Fetch Categories
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('lang', lang)
-    .limit(6);
+  const { heroPost, subHeroPosts, feedPosts, categories } = await getHomeData(lang);
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-blue-100">
@@ -68,9 +90,9 @@ export default async function Home({ params }: { params: { lang: string } }) {
 
       <main className="max-w-[1400px] mx-auto px-6 py-10">
         {/* HERO SECTION */}
-        <section className="h-[500px] w-full grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-1 border-2 border-black rounded-3xl overflow-hidden mb-16 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] bg-slate-100">
+        <section className="h-auto lg:h-[500px] w-full grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-1 border-2 border-black rounded-3xl overflow-hidden mb-16 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] bg-slate-100">
           {heroPost ? (
-            <Link href={`/${lang}/news/${heroPost.slug}`} className="relative group overflow-hidden bg-slate-900 border-r-2 border-black">
+            <Link href={`/${lang}/news/${heroPost.slug}`} className="relative group overflow-hidden bg-slate-900 border-r-2 border-black min-h-[400px]">
               <img 
                 src={heroPost.featured_image || "https://images.unsplash.com/photo-1677442136019-21780ecad995"} 
                 className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700" 
@@ -88,17 +110,24 @@ export default async function Home({ params }: { params: { lang: string } }) {
                 </div>
               </div>
             </Link>
-          ) : <div className="bg-slate-200 border-r-2 border-black"></div>}
+          ) : (
+            <div className="bg-slate-200 border-r-2 border-black flex items-center justify-center p-10 min-h-[400px]">
+              <p className="font-display text-2xl font-black text-slate-400 uppercase">Latest news coming soon</p>
+            </div>
+          )}
 
           <div className="bg-white flex flex-col">
-            {subHeroPosts?.map((post, idx) => (
+            {subHeroPosts.length > 0 ? subHeroPosts.map((post, idx) => (
               <Link key={post.id} href={`/${lang}/news/${post.slug}`} className={`flex-1 p-8 group hover:bg-slate-50 transition-colors ${idx === 0 ? 'border-b-2 border-black' : ''}`}>
                 <span className="text-blue-600 text-[10px] font-black uppercase tracking-widest mb-2 inline-block">{(post.categories as any)?.name || 'News'}</span>
                 <h3 className="font-display text-2xl font-black leading-tight group-hover:text-blue-600">{post.title}</h3>
                 <p className="text-slate-500 text-sm mt-3 line-clamp-2 italic font-medium">{post.excerpt}</p>
               </Link>
-            ))}
-            {!subHeroPosts?.length && <div className="flex-1"></div>}
+            )) : (
+              <div className="flex-1 p-8 flex items-center justify-center border-b-2 border-black">
+                <p className="text-slate-300 font-bold uppercase tracking-widest text-xs">Stay tuned</p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -109,7 +138,7 @@ export default async function Home({ params }: { params: { lang: string } }) {
               <span className="w-20 h-0.5 bg-black"></span>
             </h4>
             
-            {feedPosts?.map((post) => (
+            {feedPosts.length > 0 ? feedPosts.map((post) => (
               <article key={post.id} className="group cursor-pointer">
                 <Link href={`/${lang}/news/${post.slug}`}>
                   <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-8">
@@ -133,7 +162,9 @@ export default async function Home({ params }: { params: { lang: string } }) {
                   </div>
                 </Link>
               </article>
-            ))}
+            )) : (
+              <p className="text-slate-400 italic">No stories found in this language yet.</p>
+            )}
           </section>
 
           <aside className="space-y-16">
@@ -152,11 +183,13 @@ export default async function Home({ params }: { params: { lang: string } }) {
                 <span className="flex-1 h-px bg-slate-200"></span>
               </h4>
               <div className="grid grid-cols-2 gap-4">
-                {categories?.map((cat) => (
+                {categories.length > 0 ? categories.map((cat) => (
                   <Link key={cat.id} href={`/${lang}/category/${cat.slug}`} className="border-2 border-black p-4 rounded-xl font-display font-black text-sm uppercase tracking-tighter hover:bg-black hover:text-white transition-all text-center">
                     {cat.name}
                   </Link>
-                ))}
+                )) : (
+                  <p className="col-span-2 text-slate-400 text-xs italic">No categories found.</p>
+                )}
               </div>
             </div>
           </aside>
