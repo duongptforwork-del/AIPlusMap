@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
+import GlobalSearch from '@/components/search/GlobalSearch';
 
 const CATEGORIES = [
   { name: 'AI Market Trends', slug: 'ai-market-trends' },
@@ -25,32 +26,34 @@ export default function Navbar({ lang }: { lang: string }) {
             </div>
           </Link>
 
-          <nav>
-            <ul className="flex items-center gap-1 font-black text-sm uppercase italic">
-              <li><Link href={`/${lang}`} className="px-3 py-2 hover:bg-black hover:text-white transition-colors">Home</Link></li>
-              <li className="relative group">
-                <Link href={`/${lang}/news`} className="px-3 py-2 flex items-center gap-1 hover:bg-black hover:text-white transition-colors">
-                  News <ChevronDown size={14} />
-                </Link>
-                {/* Dropdown Menu */}
-                <div className="absolute top-full left-0 w-64 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hidden group-hover:block z-50">
-                  {CATEGORIES.map((cat) => (
-                    <Link 
-                      key={cat.slug} 
-                      href={`/${lang}/category/${cat.slug}`}
-                      className="block px-4 py-3 border-b border-black last:border-0 hover:bg-[#ef4444] hover:text-white transition-colors text-[12px]"
-                    >
-                      {cat.name}
-                    </Link>
-                  ))}
-                </div>
-              </li>
-              <li><Link href={`/${lang}/compare`} className="px-3 py-2 hover:bg-black hover:text-white transition-colors">Compare</Link></li>
-              <li><Link href={`/${lang}/guide`} className="px-3 py-2 hover:bg-black hover:text-white transition-colors">AI Guide</Link></li>
-              <li><Link href={`/${lang}/events`} className="px-3 py-2 hover:bg-black hover:text-white transition-colors">Events</Link></li>
-
-            </ul>
-          </nav>
+          <div className="flex items-center gap-6">
+            <nav className="hidden lg:block">
+              <ul className="flex items-center gap-1 font-black text-sm uppercase italic">
+                <li><Link href={`/${lang}`} className="px-3 py-2 hover:bg-black hover:text-white transition-colors">Home</Link></li>
+                <li className="relative group">
+                  <Link href={`/${lang}/news`} className="px-3 py-2 flex items-center gap-1 hover:bg-black hover:text-white transition-colors">
+                    News <ChevronDown size={14} />
+                  </Link>
+                  {/* Dropdown Menu */}
+                  <div className="absolute top-full left-0 w-64 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hidden group-hover:block z-50">
+                    {CATEGORIES.map((cat) => (
+                      <Link 
+                        key={cat.slug} 
+                        href={`/${lang}/category/${cat.slug}`}
+                        className="block px-4 py-3 border-b border-black last:border-0 hover:bg-[#ef4444] hover:text-white transition-colors text-[12px]"
+                      >
+                        {cat.name}
+                      </Link>
+                    ))}
+                  </div>
+                </li>
+                <li><Link href={`/${lang}/compare`} className="px-3 py-2 hover:bg-black hover:text-white transition-colors">Compare</Link></li>
+                <li><Link href={`/${lang}/guide`} className="px-3 py-2 hover:bg-black hover:text-white transition-colors">AI Guide</Link></li>
+                <li><Link href={`/${lang}/events`} className="px-3 py-2 hover:bg-black hover:text-white transition-colors">Events</Link></li>
+              </ul>
+            </nav>
+            <GlobalSearch lang={lang} />
+          </div>
         </div>
       </div>
     </header>

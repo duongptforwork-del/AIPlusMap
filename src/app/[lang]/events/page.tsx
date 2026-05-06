@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import SectionHeader from '@/components/SectionHeader';
+import SubmitEventModal from '@/components/events/SubmitEventModal';
 import { createClient } from '@/utils/supabase/server';
 
 export default async function EventsPage({ params: { lang } }: { params: { lang: string } }) {
@@ -74,9 +75,7 @@ export default async function EventsPage({ params: { lang } }: { params: { lang:
         <div className="mt-24 bg-black p-12 border-4 border-black text-white text-center shadow-[16px_16px_0px_0px_rgba(239,68,68,1)]">
           <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-4">Hosting an Event?</h2>
           <p className="text-xl font-bold mb-8 text-slate-400">Put your summit on the map and reach 500k+ AI professionals globally.</p>
-          <button className="bg-[#ef4444] text-white px-12 py-5 font-black uppercase text-sm border-4 border-[#ef4444] hover:bg-white hover:text-black hover:border-white transition-all">
-            Submit Your Event
-          </button>
+          <SubmitEventModal lang={lang} />
         </div>
       </main>
     </div>
