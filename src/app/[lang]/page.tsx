@@ -1,212 +1,197 @@
-import React from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/utils/supabase/server';
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = 3600;
 
-export async function generateStaticParams() {
-  return [{ lang: 'en' }, { lang: 'vi' }];
-}
+export default async function HomePage({ params: { lang } }: { params: { lang: string } }) {
+  const supabase = createClient();
 
-async function getHomeData(lang: string) {
-  try {
-    const [heroRes, subHeroRes, feedRes, catRes] = await Promise.all([
-      // Fetch Hero Post
-      supabase
-        .from('posts')
-        .select('*, categories(name, slug)')
-        .eq('lang', lang)
-        .eq('is_published', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(), // Use maybeSingle to avoid errors on 0 results
+  // Optimized fetching using Promise.all for parallel performance
+  const [
+    { data: heroPosts },
+    { data: recentPosts },
+    { data: feedPosts }
+  ] = await Promise.all([
+    supabase.from('posts').select('*, categories(*)').eq('language', lang).order('created_at', { ascending: false }).limit(1),
+    supabase.from('posts').select('*, categories(*)').eq('language', lang).order('created_at', { ascending: false }).range(1, 3),
+    supabase.from('posts').select('*, categories(*)').eq('language', lang).order('created_at', { ascending: false }).range(4, 6)
+  ]);
 
-      // Fetch Sub-Hero Posts (Next 2)
-      supabase
-        .from('posts')
-        .select('*, categories(name, slug)')
-        .eq('lang', lang)
-        .eq('is_published', true)
-        .order('created_at', { ascending: false })
-        .range(1, 2),
-
-      // Fetch Feed Posts
-      supabase
-        .from('posts')
-        .select('*, categories(name, slug)')
-        .eq('lang', lang)
-        .eq('is_published', true)
-        .order('created_at', { ascending: false })
-        .range(3, 8),
-
-      // Fetch Categories
-      supabase
-        .from('categories')
-        .select('*')
-        .eq('lang', lang)
-        .limit(6)
-    ]);
-
-    return {
-      heroPost: heroRes.data,
-      subHeroPosts: subHeroRes.data || [],
-      feedPosts: feedRes.data || [],
-      categories: catRes.data || []
-    };
-  } catch (error) {
-    console.error('Error fetching home data:', error);
-    return {
-      heroPost: null,
-      subHeroPosts: [],
-      feedPosts: [],
-      categories: []
-    };
-  }
-}
-
-export default async function Home({ params }: { params: { lang: string } }) {
-  const { lang = 'en' } = params;
-  const { heroPost, subHeroPosts, feedPosts, categories } = await getHomeData(lang);
+  const hero = heroPosts?.[0];
+  const sidePosts = recentPosts || [];
+  const bottomPosts = feedPosts || [];
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-blue-100">
-      <nav className="border-b-2 border-black py-6 sticky top-0 bg-white/90 backdrop-blur-sm z-50">
-        <div className="max-w-[1400px] mx-auto px-6 flex justify-between items-end">
-          <div>
-            <Link href={`/${lang}`} className="font-display text-4xl font-black tracking-tighter leading-none">
-              AI PLUS MAP<span className="text-blue-600">.</span>
-            </Link>
-            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400 mt-1">Intelligence Mapping Magazine</p>
+    <div className="min-h-screen flex flex-col">
+      {/* Top Bar */}
+      <div className="bg-[#0F172A] text-white py-2 px-4 text-xs font-medium">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex gap-4">
+            <span>{new Date().toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <span className="hidden md:inline">Trending: OpenAI Sora 2.0 Release</span>
           </div>
-          
-          <div className="flex space-x-10 font-bold text-xs uppercase tracking-widest pb-1">
-            <Link href={`/${lang}/category/news`} className="hover:text-blue-600 transition-colors">News</Link>
-            <Link href={`/${lang}/category/analysis`} className="hover:text-blue-600 transition-colors">Analysis</Link>
-            <Link href={`/${lang}/category/guides`} className="hover:text-blue-600 transition-colors">Guides</Link>
-            <Link href={`/${lang}/admin`} className="px-3 py-1 bg-black text-white rounded hover:bg-blue-600 transition-colors">Admin</Link>
+          <div className="flex gap-4">
+            <Link href="#" className="hover:text-[#3B82F6]">Login</Link>
+            <Link href="#" className="hover:text-[#3B82F6]">Subscribe</Link>
           </div>
         </div>
-      </nav>
+      </div>
 
-      <main className="max-w-[1400px] mx-auto px-6 py-10">
-        {/* HERO SECTION */}
-        <section className="h-auto lg:h-[500px] w-full grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-1 border-2 border-black rounded-3xl overflow-hidden mb-16 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] bg-slate-100">
-          {heroPost ? (
-            <Link href={`/${lang}/news/${heroPost.slug}`} className="relative group overflow-hidden bg-slate-900 border-r-2 border-black min-h-[400px]">
-              <img 
-                src={heroPost.featured_image || "https://images.unsplash.com/photo-1677442136019-21780ecad995"} 
-                className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700" 
-                alt={heroPost.title}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 p-10">
-                <span className="bg-blue-600 text-white text-[10px] font-black px-3 py-1 uppercase tracking-widest mb-4 inline-block">Featured</span>
-                <h2 className="font-display text-5xl font-black text-white leading-tight max-w-xl group-hover:underline decoration-blue-600 underline-offset-8">
-                  {heroPost.title}
-                </h2>
-                <div className="flex items-center space-x-3 mt-6">
-                  <div className="w-8 h-8 rounded-full bg-blue-600 border border-white/20"></div>
-                  <span className="text-white/70 text-xs font-bold uppercase tracking-widest">By {heroPost.author_name}</span>
-                </div>
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 py-6 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <Link href={`/${lang}`} className="flex items-center gap-2 group">
+              <div className="bg-[#0F172A] p-2 rounded-lg group-hover:rotate-12 transition-transform">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A2 2 0 013 15.488V5.111a2 2 0 011.164-1.815l7-3.5a2 2 0 011.672 0l7 3.5A2 2 0 0121 5.111v10.377a2 2 0 01-1.553 1.944L14 20l-5 5z"></path></svg>
+              </div>
+              <div>
+                <span className="text-3xl font-display font-black tracking-tighter block leading-none">AI PLUS MAP</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">The Intelligence Cartography</span>
               </div>
             </Link>
-          ) : (
-            <div className="bg-slate-200 border-r-2 border-black flex items-center justify-center p-10 min-h-[400px]">
-              <p className="font-display text-2xl font-black text-slate-400 uppercase">Latest news coming soon</p>
+
+            <nav className="flex items-center gap-1">
+              <ul className="flex items-center font-bold text-sm uppercase tracking-tight">
+                <li><Link href={`/${lang}`} className="px-4 py-2 text-[#3B82F6]">Home</Link></li>
+                <li className="relative group">
+                  <Link href={`/${lang}/news`} className="px-4 py-2 hover:text-[#3B82F6] flex items-center gap-1">
+                    News <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                  </Link>
+                </li>
+                <li><Link href="#" className="px-4 py-2 hover:text-[#3B82F6]">Compare</Link></li>
+                <li><Link href="#" className="px-4 py-2 hover:text-[#3B82F6]">AI Guide</Link></li>
+                <li><Link href="#" className="px-4 py-2 hover:text-[#3B82F6]">Events</Link></li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      {/* Trending Ticker */}
+      <div className="bg-white border-b border-slate-200 overflow-hidden relative group">
+        <div className="absolute left-0 top-0 bottom-0 px-4 bg-[#ef4444] text-white font-black text-xs flex items-center z-10 skew-x-[-12deg] -ml-2">
+          <span className="skew-x-[12deg] px-2">TRENDING NOW</span>
+        </div>
+        <div className="flex whitespace-nowrap py-3 pl-32 animate-[scroll_40s_linear_infinite]">
+          {sidePosts.map((post) => (
+            <Link key={post.id} href={`/${lang}/news/${post.slug}`} className="mx-8 font-bold text-sm hover:text-[#3B82F6]">
+              {post.title}
+            </Link>
+          ))}
+          {/* Duplicate for infinite effect */}
+          {sidePosts.map((post) => (
+            <Link key={`${post.id}-dup`} href={`/${lang}/news/${post.slug}`} className="mx-8 font-bold text-sm hover:text-[#3B82F6]">
+              {post.title}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <main className="max-w-7xl mx-auto px-4 py-8 flex-grow">
+        {/* Hero Section */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+          {hero && (
+            <div className="lg:col-span-2 relative overflow-hidden rounded-2xl group h-[500px]">
+              <img src={hero.image_url} alt={hero.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute bottom-0 p-8 text-white">
+                <span className="inline-block px-3 py-1 bg-[#ef4444] text-[10px] font-black uppercase tracking-widest mb-4">
+                  {hero.categories?.title || 'Featured'}
+                </span>
+                <h2 className="text-4xl md:text-5xl font-display font-black leading-tight mb-4">
+                  <Link href={`/${lang}/news/${hero.slug}`} className="hover:underline">{hero.title}</Link>
+                </h2>
+                <p className="text-slate-200 text-lg max-w-2xl line-clamp-2">{hero.description}</p>
+              </div>
             </div>
           )}
 
-          <div className="bg-white flex flex-col">
-            {subHeroPosts.length > 0 ? subHeroPosts.map((post, idx) => (
-              <Link key={post.id} href={`/${lang}/news/${post.slug}`} className={`flex-1 p-8 group hover:bg-slate-50 transition-colors ${idx === 0 ? 'border-b-2 border-black' : ''}`}>
-                <span className="text-blue-600 text-[10px] font-black uppercase tracking-widest mb-2 inline-block">{(post.categories as any)?.name || 'News'}</span>
-                <h3 className="font-display text-2xl font-black leading-tight group-hover:text-blue-600">{post.title}</h3>
-                <p className="text-slate-500 text-sm mt-3 line-clamp-2 italic font-medium">{post.excerpt}</p>
-              </Link>
-            )) : (
-              <div className="flex-1 p-8 flex items-center justify-center border-b-2 border-black">
-                <p className="text-slate-300 font-bold uppercase tracking-widest text-xs">Stay tuned</p>
+          <aside className="flex flex-col gap-6">
+            {sidePosts.map((post) => (
+              <div key={post.id} className="bg-white rounded-2xl overflow-hidden border border-slate-200 flex gap-4 p-4 hover:shadow-lg transition-shadow">
+                <img src={post.image_url} className="w-32 h-24 object-cover rounded-lg flex-shrink-0" alt={post.title} />
+                <div>
+                  <span className="text-[10px] font-bold text-[#3B82F6] uppercase tracking-widest">{post.categories?.title}</span>
+                  <h3 className="font-bold text-base leading-snug mt-1 hover:text-[#3B82F6] transition-colors">
+                    <Link href={`/${lang}/news/${post.slug}`}>{post.title}</Link>
+                  </h3>
+                </div>
               </div>
-            )}
-          </div>
-        </section>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-16">
-          <section className="space-y-16">
-            <h4 className="font-display text-xs font-black uppercase tracking-[0.4em] border-b-2 border-black pb-2 mb-10 flex justify-between items-center">
-              Latest Stories
-              <span className="w-20 h-0.5 bg-black"></span>
-            </h4>
+            ))}
             
-            {feedPosts.length > 0 ? feedPosts.map((post) => (
-              <article key={post.id} className="group cursor-pointer">
-                <Link href={`/${lang}/news/${post.slug}`}>
-                  <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-8">
-                    <div className="aspect-square bg-slate-100 rounded-xl overflow-hidden border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                      <img src={post.featured_image || `https://picsum.photos/seed/${post.id}/500/500`} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" alt={post.title} />
-                    </div>
-                    <div>
-                      <span className="text-blue-600 text-[10px] font-black uppercase tracking-widest mb-2 inline-block">{(post.categories as any)?.name}</span>
-                      <h3 className="font-display text-3xl font-black leading-tight mb-4 group-hover:text-blue-600 transition-colors">
-                        {post.title}
-                      </h3>
-                      <p className="text-slate-500 leading-relaxed text-sm line-clamp-3 mb-6">
-                        {post.excerpt}
-                      </p>
-                      <div className="flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400 space-x-4">
-                        <span>{post.author_name}</span>
-                        <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                        <span>{new Date(post.created_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              </article>
-            )) : (
-              <p className="text-slate-400 italic">No stories found in this language yet.</p>
-            )}
-          </section>
-
-          <aside className="space-y-16">
-            <div className="bg-black text-white p-10 rounded-3xl shadow-[12px_12px_0px_0px_rgba(37,99,235,1)]">
-              <h3 className="font-display text-3xl font-black mb-6 leading-none">JOIN THE<br/>NEWSLETTER</h3>
-              <p className="text-slate-400 text-sm mb-8 font-medium">Curated AI news delivered to your inbox every Wednesday. No noise, just map.</p>
-              <div className="space-y-4">
-                <input type="email" placeholder="YOUR EMAIL" className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-blue-500" />
-                <button className="w-full bg-blue-600 text-white font-black py-3 rounded-lg hover:bg-blue-700 transition-colors text-xs uppercase tracking-widest">Subscribe</button>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-display text-xs font-black uppercase tracking-[0.4em] mb-8 flex items-center">
-                <span className="mr-4">Top Categories</span>
-                <span className="flex-1 h-px bg-slate-200"></span>
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                {categories.length > 0 ? categories.map((cat) => (
-                  <Link key={cat.id} href={`/${lang}/category/${cat.slug}`} className="border-2 border-black p-4 rounded-xl font-display font-black text-sm uppercase tracking-tighter hover:bg-black hover:text-white transition-all text-center">
-                    {cat.name}
-                  </Link>
-                )) : (
-                  <p className="col-span-2 text-slate-400 text-xs italic">No categories found.</p>
-                )}
+            {/* Newsletter Widget */}
+            <div className="bg-[#0F172A] rounded-2xl p-6 text-white relative overflow-hidden">
+              <div className="relative z-10">
+                <h4 className="font-display font-black text-xl mb-2">Join 50,000+ AI Experts</h4>
+                <p className="text-xs text-slate-400 mb-4">Get the weekly AI Plus Map report in your inbox.</p>
+                <div className="space-y-2">
+                  <input type="email" placeholder="Email Address" className="w-full bg-white/10 border border-white/20 px-4 py-2 rounded-lg text-sm focus:outline-none" />
+                  <button className="w-full bg-[#3B82F6] hover:bg-blue-600 text-white font-bold py-2 rounded-lg text-sm transition-colors">Join Free</button>
+                </div>
               </div>
             </div>
           </aside>
-        </div>
+        </section>
+
+        {/* Latest News */}
+        <section className="mb-16">
+          <div className="flex justify-between items-end border-b-4 border-[#0F172A] pb-2 mb-8">
+            <h2 className="text-3xl font-display font-black uppercase italic tracking-tighter">Latest Updates</h2>
+            <Link href={`/${lang}/news`} className="text-xs font-bold hover:text-[#3B82F6] flex items-center gap-1 group">
+              SEE ALL NEWS 
+              <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+            </Link>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {bottomPosts.map((post) => (
+              <article key={post.id} className="group">
+                <div className="aspect-[16/9] overflow-hidden rounded-xl mb-4">
+                  <img src={post.image_url} alt={post.title} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                </div>
+                <span className="text-[10px] font-black text-[#ef4444] uppercase tracking-widest">{post.categories?.title}</span>
+                <h3 className="text-xl font-bold mt-2 leading-tight group-hover:text-[#3B82F6] transition-colors">
+                  <Link href={`/${lang}/news/${post.slug}`}>{post.title}</Link>
+                </h3>
+                <p className="text-slate-500 text-sm mt-3 line-clamp-3">{post.description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
       </main>
 
-      <footer className="bg-slate-50 py-20 mt-20 border-t-2 border-black">
-        <div className="max-w-[1400px] mx-auto px-6 text-center">
-          <div className="font-display text-4xl font-black tracking-tighter mb-8 text-black">AI PLUS MAP</div>
-          <div className="flex flex-wrap justify-center gap-x-12 gap-y-6 text-xs font-black uppercase tracking-widest text-slate-500 mb-12">
-            <Link href={`/${lang}/about`} className="hover:text-black">About</Link>
-            <Link href={`/${lang}/privacy`} className="hover:text-black">Privacy</Link>
-            <Link href={`/${lang}/contact`} className="hover:text-black">Contact</Link>
-            <Link href={`/${lang}/advertise`} className="hover:text-black">Advertise</Link>
+      {/* Footer */}
+      <footer className="bg-[#0F172A] text-white pt-16 pb-8 border-t-8 border-[#ef4444]">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+            <div className="col-span-2">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="bg-white p-1 rounded-lg">
+                  <svg className="w-6 h-6 text-[#0F172A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A2 2 0 013 15.488V5.111a2 2 0 011.164-1.815l7-3.5a2 2 0 011.672 0l7 3.5A2 2 0 0121 5.111v10.377a2 2 0 01-1.553 1.944L14 20l-5 5z"></path></svg>
+                </div>
+                <span className="text-2xl font-display font-black tracking-tighter">AI PLUS MAP</span>
+              </div>
+              <p className="text-slate-400 max-w-md">AI Plus Map là nền tảng tin tức và hướng dẫn chuyên sâu về Trí tuệ nhân tạo.</p>
+            </div>
+            <div>
+              <h5 className="font-bold uppercase tracking-widest text-xs mb-6 text-slate-500">Navigation</h5>
+              <ul className="space-y-4 text-sm font-medium">
+                <li><Link href={`/${lang}/news`} className="hover:text-[#3B82F6]">Latest News</Link></li>
+                <li><Link href="#" className="hover:text-[#3B82F6]">AI Comparisons</Link></li>
+                <li><Link href="#" className="hover:text-[#3B82F6]">Usage Guides</Link></li>
+              </ul>
+            </div>
+            <div>
+               <div className="flex items-center gap-2">
+                  <span className="opacity-50 text-[10px]">Crafted with precision</span>
+                  <a href="https://deerflow.tech" target="_blank" className="font-bold text-[10px] text-white hover:text-[#3B82F6] transition-colors">✦ Created By Deerflow</a>
+                </div>
+            </div>
           </div>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-4">© 2026 AI PLUS MAP — ALL RIGHTS RESERVED</p>
-          <a href="https://deerflow.tech" target="_blank" className="inline-block text-[10px] font-black text-blue-600 hover:underline">CREATED BY DEERFLOW</a>
+          <div className="pt-8 border-t border-white/10 text-[10px] text-slate-500 text-center">
+            <p>&copy; 2026 AI Plus Map. All rights reserved.</p>
+          </div>
         </div>
       </footer>
     </div>

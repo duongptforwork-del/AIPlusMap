@@ -1,108 +1,97 @@
-import React from 'react';
-import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/utils/supabase/server';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 
 export const revalidate = 3600;
-export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  try {
-    // Limit pre-rendering to top 10 recent posts per language to avoid build timeouts
-    const { data: posts, error } = await supabase
-      .from('posts')
-      .select('slug, lang')
-      .eq('is_published', true)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (error || !posts) {
-      console.error('Error fetching posts for generateStaticParams:', error);
-      return [];
-    }
-
-    return posts.map((post) => ({
-      lang: post.lang,
-      slug: post.slug,
-    }));
-  } catch (err) {
-    console.error('Unexpected error in generateStaticParams:', err);
-    return [];
-  }
+  const supabase = createClient();
+  const { data: posts } = await supabase.from('posts').select('slug').limit(20);
+  return posts?.map((post) => ({ slug: post.slug })) || [];
 }
 
-export default async function NewsDetail({ params }: { params: { lang: string, slug: string } }) {
-  const { lang, slug } = params;
+export default async function NewsDetailPage({ params: { lang, slug } }: { params: { lang: string; slug: string } }) {
+  const supabase = createClient();
 
   const { data: post } = await supabase
     .from('posts')
     .select('*, categories(*)')
     .eq('slug', slug)
-    .eq('lang', lang)
     .single();
 
-  if (!post) {
-    notFound();
-  }
+  if (!post) return notFound();
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
-       <nav className="border-b-2 border-black py-6 bg-white">
-        <div className="max-w-[1400px] mx-auto px-6 flex justify-between items-end">
-          <Link href={`/${lang}`} className="font-display text-4xl font-black tracking-tighter leading-none">
-            AI PLUS MAP<span className="text-blue-600">.</span>
-          </Link>
-          <div className="flex space-x-10 font-bold text-xs uppercase tracking-widest pb-1">
-            <Link href={`/${lang}`} className="hover:text-blue-600 transition-colors">Back Home</Link>
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 py-6 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <Link href={`/${lang}`} className="flex items-center gap-2 group">
+              <div className="bg-[#0F172A] p-2 rounded-lg group-hover:rotate-12 transition-transform">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A2 2 0 013 15.488V5.111a2 2 0 011.164-1.815l7-3.5a2 2 0 011.672 0l7 3.5A2 2 0 0121 5.111v10.377a2 2 0 01-1.553 1.944L14 20l-5 5z"></path></svg>
+              </div>
+              <div>
+                <span className="text-3xl font-display font-black tracking-tighter block leading-none">AI PLUS MAP</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">The Intelligence Cartography</span>
+              </div>
+            </Link>
+
+            <nav>
+              <ul className="flex items-center font-bold text-sm uppercase tracking-tight">
+                <li><Link href={`/${lang}`} className="px-4 py-2 hover:text-[#3B82F6]">Home</Link></li>
+                <li><Link href={`/${lang}/news`} className="px-4 py-2 text-[#3B82F6]">News</Link></li>
+                <li><Link href="#" className="px-4 py-2 hover:text-[#3B82F6]">Compare</Link></li>
+                <li><Link href="#" className="px-4 py-2 hover:text-[#3B82F6]">AI Guide</Link></li>
+              </ul>
+            </nav>
           </div>
         </div>
-      </nav>
+      </header>
 
-      <main className="max-w-[1000px] mx-auto px-6 py-20">
-        <header className="mb-16">
-          <Link href={`/${lang}/category/${(post.categories as any)?.slug}`} className="text-blue-600 text-xs font-black uppercase tracking-widest mb-6 inline-block">
-            {(post.categories as any)?.name}
-          </Link>
-          <h1 className="font-display text-6xl font-black leading-[1.1] tracking-tight mb-10">
-            {post.title}
-          </h1>
-          <div className="flex items-center space-x-6 text-sm font-bold uppercase tracking-widest text-slate-400 border-y-2 border-slate-100 py-6">
-            <span className="text-black">By {post.author_name}</span>
-            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
-            <span>{new Date(post.created_at).toLocaleDateString()}</span>
-          </div>
-        </header>
-
-        {post.featured_image && (
-          <div className="mb-16 rounded-3xl overflow-hidden border-2 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
-            <img src={post.featured_image} alt={post.title} className="w-full h-auto" />
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_250px] gap-20">
-          <article className="prose prose-slate prose-lg max-w-none 
-            prose-headings:font-display prose-headings:font-black prose-headings:tracking-tight
-            prose-p:leading-relaxed prose-p:text-slate-600
-            prose-strong:text-black prose-strong:font-black
-            prose-img:rounded-2xl prose-img:border-2 prose-img:border-black">
-            <div dangerouslySetInnerHTML={{ __html: post.content }} />
-          </article>
-
-          <aside className="space-y-12">
-            <div className="sticky top-32">
-              <h4 className="font-display text-xs font-black uppercase tracking-widest mb-6">Share this story</h4>
-              <div className="flex flex-col space-y-4">
-                <button className="border-2 border-black p-3 font-black text-xs uppercase hover:bg-black hover:text-white transition-colors">Twitter / X</button>
-                <button className="border-2 border-black p-3 font-black text-xs uppercase hover:bg-black hover:text-white transition-colors">LinkedIn</button>
-                <button className="border-2 border-black p-3 font-black text-xs uppercase hover:bg-black hover:text-white transition-colors">Copy Link</button>
+      <main className="max-w-4xl mx-auto px-4 py-20 flex-grow">
+        <article>
+          <header className="mb-12">
+            <span className="text-xs font-black text-[#ef4444] uppercase tracking-[0.2em] mb-6 inline-block">
+              {post.categories?.title || 'Intelligence'}
+            </span>
+            <h1 className="text-4xl md:text-6xl font-display font-extrabold leading-[1.1] mb-8 tracking-tighter">
+              {post.title}
+            </h1>
+            
+            <div className="flex items-center gap-4 py-8 border-y border-slate-200">
+              <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center">
+                <span className="font-bold text-slate-400">DF</span>
+              </div>
+              <div>
+                <p className="text-sm font-black">AI Plus Map Editor</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  {new Date(post.created_at).toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })} • 8 MIN READ
+                </p>
               </div>
             </div>
-          </aside>
-        </div>
+          </header>
+
+          <div className="aspect-video w-full rounded-3xl overflow-hidden shadow-2xl mb-12">
+            <img src={post.image_url} alt={post.title} className="w-full h-full object-cover" />
+          </div>
+
+          <div className="prose prose-slate prose-lg max-w-none">
+            <p className="text-xl font-medium leading-relaxed mb-8 italic text-slate-600 border-l-4 border-[#3B82F6] pl-6">
+              {post.description}
+            </p>
+            <div dangerouslySetInnerHTML={{ __html: post.content }} />
+          </div>
+        </article>
       </main>
 
-      <footer className="bg-slate-50 py-20 mt-20 border-t-2 border-black text-center">
-        <a href="https://deerflow.tech" target="_blank" className="text-[10px] font-black text-blue-600 hover:underline tracking-widest uppercase">CREATED BY DEERFLOW</a>
+      <footer className="bg-[#0F172A] text-white pt-16 pb-8 border-t-8 border-[#ef4444]">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex justify-between items-center text-[10px] text-slate-500">
+            <p>&copy; 2026 AI Plus Map. All rights reserved.</p>
+            <a href="https://deerflow.tech" target="_blank" className="font-bold text-white hover:text-[#3B82F6] transition-colors">✦ Created By Deerflow</a>
+          </div>
+        </div>
       </footer>
     </div>
   );
