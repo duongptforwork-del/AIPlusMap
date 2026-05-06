@@ -18,3 +18,7 @@ except:
     pass
 run_git(["branch", "-M", "main"])
 print("Git setup complete locally.")
+
+# Attempt to push
+print("Attempting to push...")
+run_git(["push", "-u", "origin", "main"])
